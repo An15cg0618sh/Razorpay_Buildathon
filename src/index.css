@@ -1,0 +1,316 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   FinPilot AI design tokens.
+
+   Tailwind v4 reads @theme and generates utilities from it, so
+   --color-primary becomes bg-primary / text-primary / border-primary.
+   There is no tailwind.config.js — this file is the theme.
+
+   Token names are semantic on purpose. Nothing here is named after the colour
+   it currently holds, so the palette can be retuned without touching markup.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Type: Inter across the interface. Figures use Inter's tabular numerals
+     rather than a second webfont, so columns still line up like a ledger. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Surfaces. The app sits on a faintly cool off-white; panels are pure white
+     so they lift off it without needing a heavy shadow. */
+  --color-canvas: #f7f8fa;
+  --color-panel: #ffffff;
+  --color-subtle: #f2f4f7;
+
+  /* Borders carry the structure. Two weights: resting and emphasis. */
+  --color-line: #e4e7ec;
+  --color-line-strong: #d0d5dd;
+
+  /* Text, darkest to lightest. */
+  --color-navy: #101828;
+  --color-steel: #475467;
+  --color-mist: #98a2b3;
+
+  /* One primary accent: active nav, focus, primary action. */
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-soft: #eef2ff;
+
+  /* Semantic states. These always mean something — never decoration.
+     Each has a wash for badge and row backgrounds on white. */
+  --color-positive: #039855;
+  --color-positive-soft: #ecfdf3;
+  --color-warning: #b54708;
+  --color-warning-soft: #fffaeb;
+  --color-warning-dark: #8f3906;
+  --color-critical: #d92d20;
+  --color-critical-soft: #fef3f2;
+
+  /* Restrained elevation. No glass, no gradients — a panel is a white card
+     with a hairline and just enough shadow to separate it from the canvas. */
+  --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06);
+  --shadow-raised: 0 4px 10px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
+  --shadow-drawer: 0 20px 40px -12px rgb(16 24 40 / 0.25);
+}
+
+@layer base {
+  /* Tailwind v4 defaults borders to currentColor; hairlines are load-bearing
+     in this design, so give them a predictable default. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-canvas);
+    color: var(--color-navy);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  }
+
+  /* Light scrollbars, so the chrome matches the shell. */
+  * {
+    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-mist);
+  }
+}
+
+@layer components {
+  /* Monetary amounts, account codes and dates in tables. Tabular figures keep
+     columns aligned, which is the whole reason this class exists. */
+  .figure {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
+  }
+
+  /* Motion is limited to the mobile drawer and only ever runs in response to
+     someone tapping the menu button. */
+  .animate-drawer-in {
+    animation: drawer-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.18s ease-out both;
+  }
+
+  /* Skip link: parked off-screen but still focusable, and a real button once
+     focused. Written out longhand rather than composed from sr-only +
+     not-sr-only, because both of those set `position` and which one wins
+     depends on utility order rather than on the order of the class names. */
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 60;
+    border-radius: 0.5rem;
+    background-color: var(--color-primary);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #ffffff;
+    box-shadow: var(--shadow-raised);
+    transform: translateY(-300%);
+    transition: transform 0.15s ease-out;
+  }
+
+  .skip-link:focus {
+    transform: none;
+  }
+
+  .dashboard-page {
+    gap: 1.25rem;
+  }
+
+  .dashboard-page > * {
+    animation: dashboard-rise 0.45s ease-out both;
+  }
+
+  .dashboard-page > *:nth-child(2) { animation-delay: 0.04s; }
+  .dashboard-page > *:nth-child(3) { animation-delay: 0.08s; }
+  .dashboard-page > *:nth-child(4) { animation-delay: 0.12s; }
+  .dashboard-page > *:nth-child(5) { animation-delay: 0.16s; }
+
+  .dashboard-kpi,
+  .dashboard-card {
+    border: 1px solid var(--color-line);
+    border-radius: 0.625rem;
+    background: var(--color-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  .dashboard-kpi {
+    min-height: 10.75rem;
+    border-top: 3px solid var(--color-line-strong);
+    padding: 1.25rem;
+  }
+
+  .kpi-teal { border-top-color: #0f9f94; }
+  .kpi-blue { border-top-color: #4d78e8; }
+  .kpi-amber { border-top-color: #d99b35; }
+  .kpi-coral { border-top-color: #e36b5d; }
+
+  .kpi-icon,
+  .ai-icon,
+  .warning-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .kpi-teal .kpi-icon { background: #e8f7f5; color: #0f8179; }
+  .kpi-blue .kpi-icon { background: #edf2ff; color: #4167c5; }
+  .kpi-amber .kpi-icon { background: #fff6e5; color: #ad7318; }
+  .kpi-coral .kpi-icon { background: #fff0ed; color: #c35347; }
+
+  .dashboard-card {
+    padding: 1.25rem;
+  }
+
+  .section-kicker {
+    color: var(--color-steel);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .health-ring {
+    display: grid;
+    width: 7rem;
+    height: 7rem;
+    place-items: center;
+    border-radius: 50%;
+    background: conic-gradient(#0f9f94 0deg 295deg, #e8f1f0 295deg 360deg);
+  }
+
+  .health-ring > div {
+    display: flex;
+    width: 5.65rem;
+    height: 5.65rem;
+    align-items: baseline;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--color-panel);
+    padding-top: 1.8rem;
+  }
+
+  .health-ring strong { font-size: 1.75rem; line-height: 1; }
+  .health-ring span { color: var(--color-mist); font-size: 0.7rem; margin-left: 0.15rem; }
+
+  .range-tabs {
+    display: inline-flex;
+    gap: 0.2rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.45rem;
+    padding: 0.2rem;
+  }
+
+  .range-tabs button {
+    border-radius: 0.3rem;
+    color: var(--color-steel);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .range-tabs button.active { background: var(--color-navy); color: #fff; }
+  .legend-dot { display: inline-block; width: 0.45rem; height: 0.45rem; border-radius: 50%; margin-right: 0.4rem; }
+  .warning-card { background: #fffaf0; border-color: #f1dfb8; }
+  .warning-icon { flex: 0 0 auto; height: 2.6rem; background: #fff0ce; color: var(--color-warning); }
+  .recommendation-card { background: #f8f9ff; border-color: #dfe5ff; }
+  .ai-icon { background: #e8edff; color: var(--color-primary); }
+  .risk-dot { width: 0.45rem; height: 0.45rem; border-radius: 50%; }
+  .risk-critical { background: var(--color-critical); }
+  .risk-high { background: var(--color-warning); }
+  .risk-medium { background: #d99b35; }
+  .risk-label-critical { color: var(--color-critical); }
+  .risk-label-high { color: var(--color-warning); }
+  .risk-label-medium { color: #ad7318; }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dashboard-rise {
+  from { opacity: 0; transform: translateY(0.45rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
