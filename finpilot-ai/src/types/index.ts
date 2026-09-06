@@ -183,6 +183,57 @@ export interface RiskEvent {
   status: 'open' | 'reviewing' | 'resolved';
 }
 
+/* --- Centralized Risk Center Types ---------------------------------------- */
+
+export type RiskSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+
+export type RiskType =
+  | 'Duplicate Payment'
+  | 'Unusual Transaction'
+  | 'PO/Invoice Mismatch'
+  | 'New Vendor'
+  | 'Unusual Frequency'
+  | 'Delayed Payment'
+  | 'Cash Flow Risk';
+
+export type RiskStatus = 'Open' | 'Under Review' | 'Resolved' | 'Dismissed';
+
+export interface RelatedTransaction {
+  id: string;
+  reference: string;
+  date: string;
+  description: string;
+  amount: Money;
+  counterparty: string;
+  account: string;
+}
+
+export interface RelatedInvoice {
+  id: string;
+  number: string;
+  date: string;
+  dueDate: string;
+  amount: Money;
+  customerOrVendor: string;
+  status: string;
+}
+
+export interface CentralizedRisk {
+  id: string;
+  severity: RiskSeverity;
+  riskType: RiskType;
+  vendor: string;
+  amount: Money;
+  riskScore: number;
+  explanation: string;
+  status: RiskStatus;
+  detectedDate: string;
+  whyDetected: string;
+  recommendedAction: string;
+  relatedTransaction?: RelatedTransaction;
+  relatedInvoice?: RelatedInvoice;
+}
+
 export interface DailyCashFlow {
   date: string;
   inflow: Money;

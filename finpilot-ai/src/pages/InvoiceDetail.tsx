@@ -56,7 +56,6 @@ export function InvoiceDetail() {
     );
   }
 
-  useDocumentTitle(`${invoice.number} · Invoice`);
 
   const displayStatus = sessionStatus ?? invoice.status;
   const displayRisk = sessionRisk ?? invoice.risk;
@@ -149,7 +148,10 @@ export function InvoiceDetail() {
             >
               <div className="flex items-start justify-between gap-4 border-b border-line pb-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mist">Invoice</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-mist">Invoice</p>
+                    <span className="rounded border border-line bg-subtle px-1.5 py-0.5 text-[0.625rem] font-medium text-steel uppercase tracking-wider">Demo Document</span>
+                  </div>
                   <p className="mt-2 text-lg font-semibold text-navy">{invoice.number}</p>
                 </div>
                 <div className="text-right text-xs text-steel">
@@ -175,12 +177,12 @@ export function InvoiceDetail() {
 
               <div className="mt-4 rounded-md border border-line bg-subtle p-3">
                 <div className="flex items-center justify-between text-xs text-steel">
-                  <span>Subtotal</span>
-                  <span className="figure text-navy">₹1,16,900</span>
+                  <span>Subtotal (excl. GST)</span>
+                  <span className="figure text-navy">{formatMoney(Math.round(invoice.amount / 1.18))}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-steel">
-                  <span>GST</span>
-                  <span className="figure text-navy">₹8,100</span>
+                  <span>GST (18%)</span>
+                  <span className="figure text-navy">{formatMoney(invoice.amount - Math.round(invoice.amount / 1.18))}</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-line pt-2 text-sm font-semibold text-navy">
                   <span>Total</span>

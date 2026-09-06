@@ -10,13 +10,7 @@ import { listInvoices } from '../services/financeApi';
 import type { Invoice } from '../types';
 import { describeDueDate, formatDate, formatMoney } from '../utils/format';
 
-const summaryCards = [
-  { label: 'Total Invoices', value: '128' },
-  { label: 'Pending', value: '21' },
-  { label: 'Paid', value: '92' },
-  { label: 'Overdue', value: '9' },
-  { label: 'Flagged', value: '6' },
-] as const;
+
 
 const demoExtraction = {
   vendor: 'ABC Suppliers',
@@ -38,6 +32,15 @@ export function Invoices() {
   const navigate = useNavigate();
   const rows = useMemo(() => listInvoices(), []);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  // Derive summary counts from actual data — single source of truth.
+  const summaryCards = useMemo(() => [
+    { label: 'Total Invoices', value: String(rows.length) },
+    { label: 'Pending', value: String(rows.filter((inv) => inv.status === 'pending').length) },
+    { label: 'Paid', value: String(rows.filter((inv) => inv.status === 'paid').length) },
+    { label: 'Overdue', value: String(rows.filter((inv) => inv.status === 'overdue').length) },
+    { label: 'Flagged', value: String(rows.filter((inv) => inv.status === 'flagged' || inv.status === 'disputed').length) },
+  ], [rows]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');

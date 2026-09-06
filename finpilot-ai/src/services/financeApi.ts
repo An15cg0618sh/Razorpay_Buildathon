@@ -10,8 +10,16 @@ import {
   transactions,
   vendors,
 } from '../data/mockData';
+import {
+  ALL_RISK_TYPES,
+  ALL_SEVERITIES,
+  centralizedRisks,
+  getCentralizedRiskSummary,
+  type RiskSummaryCounts,
+} from '../data/risks';
 import type {
   CashPoint,
+  CentralizedRisk,
   Company,
   Exception,
   Expense,
@@ -85,6 +93,17 @@ export function listExceptions(): Exception[] {
 export function countOpenExceptions(): number {
   return exceptions.length;
 }
+
+/** Centralized risk dataset accessors for Risk Center */
+export function listCentralizedRisks(): CentralizedRisk[] {
+  return [...centralizedRisks];
+}
+
+export function getRiskSummaryCounts(items?: CentralizedRisk[]): RiskSummaryCounts {
+  return getCentralizedRiskSummary(items);
+}
+
+export { ALL_RISK_TYPES, ALL_SEVERITIES };
 
 export function listCashHistory(): CashPoint[] {
   return cashHistory;
