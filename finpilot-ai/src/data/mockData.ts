@@ -348,10 +348,10 @@ export const cashOnHand = 10_200_000;
 export const netBurn30d = 1_862_000;
 
 export const dashboardKpis: DashboardKpi[] = [
-  { label: 'Available Cash', value: '₹10.2L', trend: '+8.4%', comparison: 'vs last month', tone: 'teal' },
+  { label: 'Available Cash', value: '₹1.02 Cr', trend: '+8.4%', comparison: 'vs last month', tone: 'teal' },
   { label: 'Revenue', value: '₹20.4L', trend: '+12.8%', comparison: 'vs last month', tone: 'blue' },
   { label: 'Expenses', value: '₹14.1L', trend: '+4.2%', comparison: 'vs last month', tone: 'amber' },
-  { label: 'Outstanding', value: '₹3.2L', trend: '12', comparison: 'invoices', tone: 'coral' },
+  { label: 'Outstanding', value: '₹28.4L', trend: '10', comparison: 'unpaid invoices', tone: 'coral' },
 ];
 
 export const dashboardHealth: DashboardHealth = [

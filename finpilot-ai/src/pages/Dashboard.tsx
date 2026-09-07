@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, BadgeIndianRupee, ReceiptText, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PageHeading } from '../components/PageHeading';
-import { dashboardCashFlow, dashboardHealth, dashboardKpis, dashboardRisks } from '../data/mockData';
+import { dashboardCashFlow, dashboardHealth, dashboardRisks } from '../data/mockData';
+import { getDashboardKpis } from '../services/financeApi';
 import type { CashFlowRange } from '../data/dashboardTypes';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
@@ -11,6 +12,7 @@ export function Dashboard() {
   useDocumentTitle('Financial Overview');
   const [range, setRange] = useState<CashFlowRange>('30D');
   const cashFlow = dashboardCashFlow[range];
+  const kpis = getDashboardKpis();
   const icons = [Wallet, BadgeIndianRupee, ArrowDownRight, ReceiptText];
 
   return (
@@ -18,7 +20,7 @@ export function Dashboard() {
       <PageHeading title="Financial Overview" lede="AI-powered view of your company's financial health" />
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key financial metrics">
-        {dashboardKpis.map((kpi, index) => {
+        {kpis.map((kpi, index) => {
           const Icon = icons[index];
           return <article key={kpi.label} className={`dashboard-kpi kpi-${kpi.tone}`}>
             <div className="flex items-start justify-between"><span className="kpi-icon"><Icon size={18} strokeWidth={2.2} /></span><span className="text-xs font-semibold text-positive">{kpi.trend}</span></div>
@@ -35,7 +37,32 @@ export function Dashboard() {
         </article>
 
         <article className="dashboard-card cash-flow-card">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="section-kicker">Cash Flow</p><h2 className="mt-1 text-lg font-semibold text-navy">Movement across your accounts</h2></div><div className="range-tabs" role="group" aria-label="Cash flow range">{(['7D', '30D', '90D'] as CashFlowRange[]).map((option) => <button type="button" key={option} onClick={() => setRange(option)} className={range === option ? 'active' : ''}>{option}</button>)}</div></div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="section-kicker">Cash Flow</p>
+                <Link
+                  to={`/cash-flow?period=${range.toLowerCase()}`}
+                  className="text-xs font-semibold text-primary hover:text-primary-dark inline-flex items-center gap-1"
+                >
+                  View Details <ArrowUpRight size={13} />
+                </Link>
+              </div>
+              <h2 className="mt-1 text-lg font-semibold text-navy">Movement across your accounts</h2>
+            </div>
+            <div className="range-tabs" role="group" aria-label="Cash flow range">
+              {(['7D', '30D', '90D'] as CashFlowRange[]).map((option) => (
+                <button
+                  type="button"
+                  key={option}
+                  onClick={() => setRange(option)}
+                  className={range === option ? 'active' : ''}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-5 flex flex-wrap gap-4 text-xs text-steel"><span><i className="legend-dot bg-[#0f9f94]" />Inflow</span><span><i className="legend-dot bg-[#e36b5d]" />Outflow</span><span><i className="legend-dot bg-[#4d78e8]" />Net cash</span></div>
           <div className="mt-2 h-64 w-full"><ResponsiveContainer width="100%" height="100%"><AreaChart data={cashFlow} margin={{ top: 16, right: 4, left: -22, bottom: 0 }}><defs><linearGradient id="inflowFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f9f94" stopOpacity={0.2} /><stop offset="100%" stopColor="#0f9f94" stopOpacity={0} /></linearGradient><linearGradient id="outflowFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e36b5d" stopOpacity={0.15} /><stop offset="100%" stopColor="#e36b5d" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="#edf0f3" vertical={false} /><XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#98a2b3', fontSize: 11 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: '#98a2b3', fontSize: 11 }} tickFormatter={(value: number) => `₹${Math.round(value / 1000)}k`} /><Tooltip contentStyle={{ border: '1px solid #e4e7ec', borderRadius: 8, boxShadow: '0 4px 12px rgb(16 24 40 / 0.08)', fontSize: 12 }} /><Area type="monotone" dataKey="inflow" stroke="#0f9f94" strokeWidth={2} fill="url(#inflowFill)" /><Area type="monotone" dataKey="outflow" stroke="#e36b5d" strokeWidth={2} fill="url(#outflowFill)" /><Area type="monotone" dataKey="net" stroke="#4d78e8" strokeWidth={2} fill="none" /></AreaChart></ResponsiveContainer></div>
         </article>

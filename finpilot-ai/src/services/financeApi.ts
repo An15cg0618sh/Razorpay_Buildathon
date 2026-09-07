@@ -17,6 +17,7 @@ import {
   getCentralizedRiskSummary,
   type RiskSummaryCounts,
 } from '../data/risks';
+import type { DashboardKpi } from '../data/dashboardTypes';
 import type {
   CashPoint,
   CentralizedRisk,
@@ -58,8 +59,10 @@ export function listRecentTransactions(count = 5): Transaction[] {
   return listTransactions().slice(0, count);
 }
 
+let invoiceList: Invoice[] = [...invoices];
+
 export function listInvoices(): Invoice[] {
-  return [...invoices].sort((a, b) => b.issuedOn.localeCompare(a.issuedOn));
+  return [...invoiceList].sort((a, b) => b.issuedOn.localeCompare(a.issuedOn));
 }
 
 export function findInvoiceById(identifier?: string | null): Invoice | undefined {
@@ -74,6 +77,17 @@ export function findInvoiceById(identifier?: string | null): Invoice | undefined
       invoice.id.toLowerCase() === normalized ||
       invoice.number.toLowerCase() === normalized,
   );
+}
+
+export function updateInvoice(id: string, updates: Partial<Invoice>): Invoice | undefined {
+  const target = findInvoiceById(id);
+  if (!target) return undefined;
+  invoiceList = invoiceList.map((inv) =>
+    inv.id === target.id || inv.number.toLowerCase() === target.number.toLowerCase()
+      ? { ...inv, ...updates }
+      : inv,
+  );
+  return findInvoiceById(id);
 }
 
 export function listVendors(): Vendor[] {
@@ -115,9 +129,20 @@ export function getCashOnHand(): number {
 
 /** Outstanding balance on invoices that are past their due date. */
 export function getOverdueReceivables(): number {
-  return invoices
+  return listInvoices()
     .filter((invoice) => invoice.status === 'overdue' || invoice.status === 'disputed')
     .reduce((total, invoice) => total + (invoice.amount - invoice.amountPaid), 0);
+}
+
+/** Outstanding balance across all unpaid invoices. */
+export function getOutstandingReceivables(): number {
+  return listInvoices()
+    .filter((invoice) => invoice.status !== 'paid')
+    .reduce((total, invoice) => total + (invoice.amount - invoice.amountPaid), 0);
+}
+
+export function getOutstandingInvoiceCount(): number {
+  return listInvoices().filter((invoice) => invoice.status !== 'paid').length;
 }
 
 /** Bank lines the matcher could not tie to a document. */
@@ -171,3 +196,17 @@ export function getHeadlineMetrics(): Metric[] {
     },
   ];
 }
+
+/** The primary KPIs displayed on the overview dashboard. */
+export function getDashboardKpis(): DashboardKpi[] {
+  const outstandingAmount = getOutstandingReceivables();
+  const outstandingCount = getOutstandingInvoiceCount();
+
+  return [
+    { label: 'Available Cash', value: formatMoneyCompact(cashOnHand), trend: '+8.4%', comparison: 'vs last month', tone: 'teal' },
+    { label: 'Revenue', value: '₹20.4L', trend: '+12.8%', comparison: 'vs last month', tone: 'blue' },
+    { label: 'Expenses', value: '₹14.1L', trend: '+4.2%', comparison: 'vs last month', tone: 'amber' },
+    { label: 'Outstanding', value: formatMoneyCompact(outstandingAmount), trend: String(outstandingCount), comparison: 'unpaid invoices', tone: 'coral' },
+  ];
+}
+

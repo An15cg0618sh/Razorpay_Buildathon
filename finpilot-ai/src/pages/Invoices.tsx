@@ -1,5 +1,5 @@
-import { CheckCircle2, FileText, MoreHorizontal, UploadCloud, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { CheckCircle2, FileText, MoreHorizontal, Search, UploadCloud, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable, type Column } from '../components/DataTable';
 import { PageHeading } from '../components/PageHeading';
@@ -9,8 +9,6 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { listInvoices } from '../services/financeApi';
 import type { Invoice } from '../types';
 import { describeDueDate, formatDate, formatMoney } from '../utils/format';
-
-
 
 const demoExtraction = {
   vendor: 'ABC Suppliers',
@@ -30,17 +28,52 @@ function titleCase(value: string): string {
 export function Invoices() {
   useDocumentTitle('Invoices');
   const navigate = useNavigate();
-  const rows = useMemo(() => listInvoices(), []);
+  const [rows, setRows] = useState<Invoice[]>(() => listInvoices());
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid' | 'overdue' | 'flagged'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Re-read latest invoices from financeApi when mounted or after navigation
+  useEffect(() => {
+    setRows(listInvoices());
+  }, []);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedInvoice(null);
+        resetUpload();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Derive summary counts from actual data — single source of truth.
   const summaryCards = useMemo(() => [
-    { label: 'Total Invoices', value: String(rows.length) },
-    { label: 'Pending', value: String(rows.filter((inv) => inv.status === 'pending').length) },
-    { label: 'Paid', value: String(rows.filter((inv) => inv.status === 'paid').length) },
-    { label: 'Overdue', value: String(rows.filter((inv) => inv.status === 'overdue').length) },
-    { label: 'Flagged', value: String(rows.filter((inv) => inv.status === 'flagged' || inv.status === 'disputed').length) },
+    { key: 'all' as const, label: 'Total Invoices', value: String(rows.length) },
+    { key: 'pending' as const, label: 'Pending', value: String(rows.filter((inv) => inv.status === 'pending').length) },
+    { key: 'paid' as const, label: 'Paid', value: String(rows.filter((inv) => inv.status === 'paid').length) },
+    { key: 'overdue' as const, label: 'Overdue', value: String(rows.filter((inv) => inv.status === 'overdue').length) },
+    { key: 'flagged' as const, label: 'Flagged', value: String(rows.filter((inv) => inv.status === 'flagged' || inv.status === 'disputed').length) },
   ], [rows]);
+
+  const filteredRows = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return rows.filter((invoice) => {
+      if (statusFilter === 'pending' && invoice.status !== 'pending') return false;
+      if (statusFilter === 'paid' && invoice.status !== 'paid') return false;
+      if (statusFilter === 'overdue' && invoice.status !== 'overdue') return false;
+      if (statusFilter === 'flagged' && invoice.status !== 'flagged' && invoice.status !== 'disputed') return false;
+      if (query) {
+        const searchable = `${invoice.number} ${invoice.customer} ${invoice.status} ${invoice.risk} ${invoice.amount}`.toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [rows, statusFilter, searchQuery]);
+
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');
@@ -177,33 +210,79 @@ export function Invoices() {
         }
       />
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {summaryCards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-line bg-panel p-4 shadow-card">
-            <p className="text-xs uppercase tracking-[0.08em] text-steel">{card.label}</p>
-            <p className="mt-3 figure text-2xl font-semibold text-navy">{card.value}</p>
-          </div>
-        ))}
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5" role="group" aria-label="Invoice summary filters">
+        {summaryCards.map((card) => {
+          const isActive = statusFilter === card.key;
+          return (
+            <button
+              type="button"
+              key={card.label}
+              onClick={() => setStatusFilter((curr) => (curr === card.key ? 'all' : card.key))}
+              className={`rounded-lg border p-4 text-left shadow-card transition-all ${
+                isActive
+                  ? 'border-primary bg-primary-soft/40 ring-2 ring-primary'
+                  : 'border-line bg-panel hover:border-line-strong hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.08em] text-steel">{card.label}</p>
+                {isActive && <span className="text-[10px] font-semibold text-primary">Filtering</span>}
+              </div>
+              <p className="mt-3 figure text-2xl font-semibold text-navy">{card.value}</p>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mt-6">
         <Panel
           title="Invoice ledger"
-          description="Professional invoice roster across payment, due-date and risk monitoring"
+          description={`${filteredRows.length} of ${rows.length} invoices`}
           flush
+          action={
+            (statusFilter !== 'all' || searchQuery.trim()) ? (
+              <button
+                type="button"
+                onClick={() => { setStatusFilter('all'); setSearchQuery(''); }}
+                className="text-xs font-medium text-primary hover:text-primary-dark"
+              >
+                Reset filters
+              </button>
+            ) : undefined
+          }
         >
+          <div className="border-b border-line bg-subtle px-4 py-3 sm:px-5">
+            <label className="relative block">
+              <span className="sr-only">Search invoices</span>
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-mist" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search invoice number, customer, status, amount..."
+                className="w-full rounded-md border border-line bg-panel py-2 pl-9 pr-3 text-sm text-navy placeholder:text-mist"
+              />
+            </label>
+          </div>
           <DataTable
             columns={columns}
-            rows={rows}
+            rows={filteredRows}
             getRowKey={(invoice) => invoice.id}
             minWidth="72rem"
-            emptyMessage="No invoices available for this period."
+            emptyMessage="No invoices match these filters."
           />
         </Panel>
       </div>
 
       {selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4" role="dialog" aria-modal="true" aria-labelledby="invoice-detail-title">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invoice-detail-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedInvoice(null);
+          }}
+        >
           <div className="w-full max-w-lg rounded-lg bg-panel p-5 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -246,7 +325,15 @@ export function Invoices() {
       )}
 
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4" role="dialog" aria-modal="true" aria-labelledby="upload-invoice-title">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-invoice-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) resetUpload();
+          }}
+        >
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-panel p-5 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -259,7 +346,14 @@ export function Invoices() {
             </div>
 
             {!uploadFile && (
-              <div className="mt-5 rounded-lg border border-dashed border-line-strong bg-subtle p-6 text-center">
+              <div
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void beginUpload(event.dataTransfer.files?.[0]);
+                }}
+                className="mt-5 rounded-lg border border-dashed border-line-strong bg-subtle p-6 text-center"
+              >
                 <UploadCloud className="mx-auto h-8 w-8 text-primary" />
                 <p className="mt-3 text-base font-semibold text-navy">Drop PDF or image here</p>
                 <p className="mt-1 text-sm text-steel">Choose a PDF, PNG, JPG, or JPEG invoice.</p>

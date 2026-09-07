@@ -3,6 +3,7 @@ import { PageHeading } from '../components/PageHeading';
 import { Panel } from '../components/Panel';
 import { StatusPill, expenseStatusTone } from '../components/StatusPill';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { usePeriod } from '../hooks/usePeriod';
 import { listExpenses } from '../services/financeApi';
 import type { Expense } from '../types';
 import { formatDate, formatMoney } from '../utils/format';
@@ -60,6 +61,7 @@ const columns: Column<Expense>[] = [
 
 export function Expenses() {
   useDocumentTitle('Expenses');
+  const [period] = usePeriod();
   const rows = listExpenses();
   const missingReceipts = rows.filter((expense) => !expense.hasReceipt).length;
 
@@ -67,7 +69,7 @@ export function Expenses() {
     <>
       <PageHeading
         title="Expenses"
-        lede={`Claims and card spend for the period. ${missingReceipts} claims are still missing a receipt.`}
+        lede={`Claims and card spend for ${period}. ${missingReceipts} claims are still missing a receipt.`}
       />
 
       <Panel

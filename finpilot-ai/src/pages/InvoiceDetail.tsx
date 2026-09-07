@@ -1,19 +1,12 @@
 import { AlertCircle, CheckCircle2, Download, Minus, Plus, ShieldAlert, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { StatusPill, invoiceStatusTone, riskTone } from '../components/StatusPill';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { findInvoiceById } from '../services/financeApi';
-import { purchaseOrders } from '../data/mockData';
+import { findInvoiceById, updateInvoice } from '../services/financeApi';
+import { customers, purchaseOrders } from '../data/mockData';
 import type { Invoice } from '../types';
 import { formatDate, formatMoney } from '../utils/format';
-
-const demoAiChecks = [
-  { label: 'Vendor verified', ok: true },
-  { label: 'Invoice number valid', ok: true },
-  { label: 'Amount extracted', ok: true },
-  { label: 'Purchase order mismatch detected', ok: false },
-] as const;
 
 function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -30,6 +23,17 @@ export function InvoiceDetail() {
 
   const invoice = useMemo(() => findInvoiceById(id), [id]);
   useDocumentTitle(invoice ? `${invoice.number} · Invoice` : 'Invoice not found');
+
+  // Close confirmation modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAction(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (!invoice) {
     return (
@@ -56,33 +60,75 @@ export function InvoiceDetail() {
     );
   }
 
-
   const displayStatus = sessionStatus ?? invoice.status;
   const displayRisk = sessionRisk ?? invoice.risk;
-  const relatedPo = purchaseOrders.find((po) => po.vendor === invoice.customer) ?? {
-    number: 'PO-UNKNOWN',
-    amount: invoice.amount,
-    vendor: invoice.customer,
-    status: 'open',
-  };
 
-  const poDifference = invoice.amount - relatedPo.amount;
-  const hasMismatch = poDifference !== 0;
-  const poStatus = hasMismatch ? 'HIGH RISK — Mismatch detected' : 'MATCHED';
-  const poExplanation = hasMismatch
-    ? `The invoice exceeds the approved purchase order by ${formatMoney(Math.abs(poDifference))}. Review before approving payment.`
-    : 'The invoice matches the approved purchase order amount.';
+  const relatedCustomer = customers.find((c) => c.name === invoice.customer);
+  const paymentTermsDays = relatedCustomer?.paymentTermsDays ?? 30;
+
+  const relatedPo = purchaseOrders.find((po) => po.vendor === invoice.customer);
+  const poDifference = relatedPo ? invoice.amount - relatedPo.amount : 0;
+  const hasMismatch = relatedPo ? poDifference !== 0 : false;
+  const poStatus = !relatedPo ? 'NOT APPLICABLE' : hasMismatch ? 'HIGH RISK — Mismatch detected' : 'MATCHED';
+  const poExplanation = !relatedPo
+    ? 'Standard billing invoice issued under direct client agreement.'
+    : hasMismatch
+      ? `The invoice exceeds the approved purchase order by ${formatMoney(Math.abs(poDifference))}. Review before approving payment.`
+      : 'The invoice matches the approved purchase order amount.';
+
+  const aiChecks = [
+    { label: 'Vendor verified', ok: true },
+    { label: 'Invoice number valid', ok: true },
+    { label: 'Amount extracted', ok: true },
+    hasMismatch
+      ? { label: 'Purchase order mismatch detected', ok: false }
+      : { label: 'Terms and amounts verified', ok: true },
+  ];
+
+  const riskReason = hasMismatch
+    ? 'Purchase order mismatch'
+    : displayStatus === 'overdue'
+      ? 'Past due payment terms'
+      : displayStatus === 'disputed'
+        ? 'Customer billing dispute'
+        : displayRisk === 'critical'
+          ? 'High financial exposure'
+          : displayRisk === 'high'
+            ? 'Collection risk detected'
+            : displayRisk === 'medium'
+              ? 'Requires periodic review'
+              : 'Compliant with standard terms';
+
+  const potentialExposure = hasMismatch
+    ? formatMoney(Math.abs(poDifference))
+    : displayStatus === 'overdue' || displayStatus === 'disputed'
+      ? formatMoney(invoice.amount - invoice.amountPaid)
+      : formatMoney(0);
+
+  const riskRecommendation = displayStatus === 'paid'
+    ? 'Invoice settled in full. No further action required.'
+    : hasMismatch
+      ? 'Review the invoice variance against the purchase order before approving payment.'
+      : displayStatus === 'overdue'
+        ? 'Follow up with customer finance department for immediate payment settlement.'
+        : displayStatus === 'disputed'
+          ? 'Resolve line item dispute with relationship owner before proceeding.'
+          : displayRisk === 'high' || displayRisk === 'critical'
+            ? 'Monitor account closely and follow up ahead of due date.'
+            : 'Invoice is in good standing with standard payment terms.';
 
   const handleConfirm = () => {
     if (action === 'approve') {
+      updateInvoice(invoice.id, { status: 'paid' });
       setSessionStatus('paid');
-      setSuccessMessage('Invoice approved');
+      setSuccessMessage('Invoice approved and marked as paid.');
     }
 
     if (action === 'flag') {
+      updateInvoice(invoice.id, { status: 'flagged', risk: 'high' });
       setSessionStatus('flagged');
       setSessionRisk('high');
-      setSuccessMessage('Invoice flagged for review');
+      setSuccessMessage('Invoice flagged for controller review.');
     }
 
     setAction(null);
@@ -251,7 +297,7 @@ export function InvoiceDetail() {
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.08em] text-mist">Payment Terms</dt>
-                <dd className="mt-1 text-sm font-medium text-navy">{relatedPo ? 'Net 30' : 'Not available'}</dd>
+                <dd className="mt-1 text-sm font-medium text-navy">Net {paymentTermsDays} days</dd>
               </div>
             </dl>
           </div>
@@ -259,7 +305,7 @@ export function InvoiceDetail() {
           <div className="rounded-lg border border-line bg-panel p-5 shadow-card">
             <h2 className="text-lg font-semibold text-navy">AI Validation</h2>
             <ul className="mt-4 space-y-3 text-sm">
-              {demoAiChecks.map((check) => (
+              {aiChecks.map((check) => (
                 <li key={check.label} className="flex items-center justify-between gap-3 rounded-md border border-line bg-subtle px-3 py-2">
                   <span className="font-medium text-navy">{check.label}</span>
                   {check.ok ? (
@@ -283,7 +329,7 @@ export function InvoiceDetail() {
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <dt className="text-xs uppercase tracking-[0.08em] text-mist">PO Amount</dt>
-                <dd className="mt-1 text-sm font-medium text-navy">{formatMoney(relatedPo.amount)}</dd>
+                <dd className="mt-1 text-sm font-medium text-navy">{relatedPo ? formatMoney(relatedPo.amount) : 'None on record'}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.08em] text-mist">Invoice Amount</dt>
@@ -297,7 +343,7 @@ export function InvoiceDetail() {
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.08em] text-mist">Status</dt>
-                <dd className="mt-1 text-sm font-semibold text-warning">{poStatus}</dd>
+                <dd className={`mt-1 text-sm font-semibold ${hasMismatch ? 'text-warning' : 'text-positive'}`}>{poStatus}</dd>
               </div>
             </dl>
             <p className="mt-4 text-sm leading-6 text-steel">{poExplanation}</p>
@@ -312,14 +358,14 @@ export function InvoiceDetail() {
               </div>
               <div className="flex items-center justify-between gap-3 rounded-md bg-subtle px-3 py-2">
                 <dt className="text-mist">Risk Reason</dt>
-                <dd className="font-semibold text-navy">Purchase order mismatch</dd>
+                <dd className="font-semibold text-navy">{riskReason}</dd>
               </div>
               <div className="flex items-center justify-between gap-3 rounded-md bg-subtle px-3 py-2">
                 <dt className="text-mist">Potential Exposure</dt>
-                <dd className="figure font-semibold text-navy">{formatMoney(Math.abs(poDifference))}</dd>
+                <dd className="figure font-semibold text-navy">{potentialExposure}</dd>
               </div>
-              <div className="rounded-md bg-warning-soft p-3 text-sm text-warning">
-                Recommendation: Review the invoice before approving payment.
+              <div className="rounded-md bg-subtle p-3 text-sm text-steel">
+                <span className="font-medium text-navy">Recommendation:</span> {riskRecommendation}
               </div>
             </dl>
           </div>
@@ -360,7 +406,15 @@ export function InvoiceDetail() {
       </div>
 
       {action && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4" role="dialog" aria-modal="true" aria-labelledby="invoice-action-title">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invoice-action-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseAction();
+          }}
+        >
           <div className="w-full max-w-md rounded-lg bg-panel p-5 shadow-raised">
             <div className="flex items-start justify-between gap-4">
               <div>

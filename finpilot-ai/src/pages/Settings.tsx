@@ -3,6 +3,7 @@ import { NotYetBuilt } from '../components/NotYetBuilt';
 import { PageHeading } from '../components/PageHeading';
 import { Panel } from '../components/Panel';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { usePeriod } from '../hooks/usePeriod';
 import { getCompany, getCurrentUser } from '../services/financeApi';
 import { CURRENCY, LOCALE } from '../utils/format';
 
@@ -17,6 +18,7 @@ export function Settings() {
   useDocumentTitle('Settings');
 
   // Same source as the sidebar and header, so the three never disagree.
+  const [period] = usePeriod();
   const company = getCompany();
   const user = getCurrentUser();
 
@@ -24,7 +26,7 @@ export function Settings() {
     { label: 'Company', value: company.name },
     { label: 'Reporting currency', value: `${CURRENCY} · formatted for ${LOCALE}` },
     { label: 'Financial year', value: company.financialYear },
-    { label: 'Current open period', value: company.openPeriod },
+    { label: 'Current open period', value: `${period} (Active)` },
     { label: 'Connected bank accounts', value: company.bankAccounts.join(', ') },
   ];
 

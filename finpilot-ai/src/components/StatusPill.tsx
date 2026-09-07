@@ -72,7 +72,7 @@ export const expenseStatusTone: Record<ExpenseStatus, PillTone> = {
 
 export const riskTone: Record<RiskLevel, PillTone> = {
   low: 'positive',
-  medium: 'warning',
-  high: 'negative',
+  medium: 'neutral',
+  high: 'warning',
   critical: 'negative',
 };

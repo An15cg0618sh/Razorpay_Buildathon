@@ -149,10 +149,22 @@ export function Transactions() {
   const vendors = useMemo(() => [...new Set(allTransactions.map((txn) => txn.counterparty))].sort(), [allTransactions]);
   const risks = ['Normal', 'Matched', 'Review', 'High Risk', 'Critical'] as const;
 
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelected(null);
+        resetImport();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return allTransactions.filter((txn) => {
-      const searchable = `${txn.description} ${referenceFor(txn)} ${txn.counterparty} ${txn.category}`.toLowerCase();
+      const searchable = `${txn.description} ${referenceFor(txn)} ${txn.counterparty} ${txn.category} ${txn.account} ${txn.amount} ${formatSignedMoney(txn.amount, txn.direction)}`.toLowerCase();
       return (
         (!normalizedQuery || searchable.includes(normalizedQuery)) &&
         (!dateFrom || txn.date >= dateFrom) &&
@@ -243,9 +255,135 @@ export function Transactions() {
         <div className="flex items-center justify-between border-t border-line px-4 py-3 text-xs text-steel sm:px-5"><span>Page {page} of {totalPages}</span><div className="flex gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)} className="rounded-md border border-line px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40 hover:bg-subtle">Previous</button><button type="button" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-line px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-40 hover:bg-subtle">Next</button></div></div>
       </Panel>
 
-      {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4" role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title"><div className="w-full max-w-lg rounded-lg bg-panel p-5 shadow-raised"><div className="flex items-start justify-between gap-4"><div><p className="section-kicker">Transaction detail</p><h2 id="transaction-detail-title" className="mt-1 text-lg font-semibold text-navy">{selected.description}</h2></div><button type="button" aria-label="Close transaction details" onClick={() => setSelected(null)} className="rounded-md p-1 text-steel hover:bg-subtle"><X className="h-4 w-4" /></button></div><dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 text-sm"><div><dt className="text-xs text-mist">Reference</dt><dd className="figure mt-1 text-navy">{referenceFor(selected)}</dd></div><div><dt className="text-xs text-mist">Amount</dt><dd className="figure mt-1 text-navy">{formatSignedMoney(selected.amount, selected.direction)}</dd></div><div><dt className="text-xs text-mist">Vendor</dt><dd className="mt-1 text-navy">{selected.counterparty}</dd></div><div><dt className="text-xs text-mist">Account</dt><dd className="mt-1 text-navy">{selected.account}</dd></div><div><dt className="text-xs text-mist">Category</dt><dd className="mt-1 text-navy">{selected.category}</dd></div><div><dt className="text-xs text-mist">Date</dt><dd className="mt-1 text-navy">{formatDate(selected.date)}</dd></div></dl></div></div>}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="transaction-detail-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelected(null);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-lg bg-panel p-5 shadow-raised">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker">Transaction detail</p>
+                <h2 id="transaction-detail-title" className="mt-1 text-lg font-semibold text-navy">{selected.description}</h2>
+              </div>
+              <button type="button" aria-label="Close transaction details" onClick={() => setSelected(null)} className="rounded-md p-1 text-steel hover:bg-subtle">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
+              <div><dt className="text-xs text-mist">Reference</dt><dd className="figure mt-1 text-navy">{referenceFor(selected)}</dd></div>
+              <div><dt className="text-xs text-mist">Amount</dt><dd className="figure mt-1 text-navy">{formatSignedMoney(selected.amount, selected.direction)}</dd></div>
+              <div><dt className="text-xs text-mist">Vendor</dt><dd className="mt-1 text-navy">{selected.counterparty}</dd></div>
+              <div><dt className="text-xs text-mist">Account</dt><dd className="mt-1 text-navy">{selected.account}</dd></div>
+              <div><dt className="text-xs text-mist">Category</dt><dd className="mt-1 text-navy">{selected.category}</dd></div>
+              <div><dt className="text-xs text-mist">Date</dt><dd className="mt-1 text-navy">{formatDate(selected.date)}</dd></div>
+            </dl>
+          </div>
+        </div>
+      )}
 
-      {isImportOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4" role="dialog" aria-modal="true" aria-labelledby="import-title"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-panel p-5 shadow-raised"><div className="flex items-start justify-between gap-4"><div><p className="section-kicker">Local file import</p><h2 id="import-title" className="mt-1 text-lg font-semibold text-navy">Import Bank Statement</h2></div><button type="button" aria-label="Close import dialog" onClick={resetImport} className="rounded-md p-1 text-steel hover:bg-subtle"><X className="h-4 w-4" /></button></div>{!file && <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void chooseFile(event.dataTransfer.files[0]); }} className="mt-5 rounded-lg border border-dashed border-line-strong bg-subtle p-6 text-center"><FileUp className="mx-auto h-7 w-7 text-primary" /><p className="mt-2 font-medium text-navy">Upload financial files</p><p className="mt-1 text-xs text-steel">Click to select or drag and drop</p><button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-dark">Choose file</button><p className="mt-4 text-xs text-mist">Supported: {supportedFormats}</p></div>}{file && detected && <div className="mt-5 space-y-4"><div className="rounded-md border border-line bg-subtle p-4"><p className="text-sm font-semibold text-navy">{file.name}</p><p className="mt-1 text-xs text-steel">Type: {detected.format}</p></div>{stage !== 'ready' && stage !== 'error' && stage !== 'complete' && <p className="rounded-md bg-primary-soft p-3 text-sm font-medium text-primary">{stageLabel[stage as keyof typeof stageLabel] ?? 'Preparing import...'}</p>}{stage === 'error' && <p className="rounded-md bg-critical-soft p-3 text-sm text-critical">{error}</p>}{stage === 'complete' && <div className="rounded-md bg-positive-soft p-4 text-sm"><p className="font-semibold text-positive">Import complete</p><p className="mt-1 text-positive">{extraction?.transactions.length ?? 0} transactions imported successfully</p><button type="button" onClick={resetImport} className="mt-4 rounded-md bg-primary px-3 py-2 font-medium text-white hover:bg-primary-dark">Done</button></div>}{stage === 'ready' && extraction && <div className="space-y-4"><p className="rounded-md bg-positive-soft p-3 text-sm font-medium text-positive">{extraction.transactions.length ? `${extraction.transactions.length} transactions ready to import` : extraction.message}</p>{extraction.transactions.length > 0 && <><h3 className="text-sm font-semibold text-navy">Import Preview</h3><div className="overflow-x-auto rounded-md border border-line"><table className="w-full min-w-[34rem] text-left text-xs"><thead className="bg-subtle text-steel"><tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Description</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Vendor</th><th className="px-3 py-2">Status</th></tr></thead><tbody>{extraction.transactions.slice(0, 5).map((txn) => <tr key={txn.id} className="border-t border-line"><td className="px-3 py-2">{formatDate(txn.date)}</td><td className="px-3 py-2">{txn.description}</td><td className="px-3 py-2">{formatSignedMoney(txn.amount, txn.direction)}</td><td className="px-3 py-2">{txn.direction === 'inflow' ? 'Credit' : 'Debit'}</td><td className="px-3 py-2">{txn.counterparty}</td><td className="px-3 py-2">{txn.status}</td></tr>)}</tbody></table></div><div className="flex justify-end gap-2"><button type="button" onClick={resetImport} className="rounded-md border border-line px-3 py-2 text-sm font-medium text-steel hover:bg-subtle">Cancel</button><button type="button" onClick={importTransactions} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-dark">Import Transactions</button></div></>}</div>}{detected.capability !== 'parsed' && stage === 'ready' && <p className="text-xs text-steel">This format is upload-supported; browser {detected.capability === 'ocr-pending' ? 'OCR' : 'document parser'} integration is still pending.</p>}</div>}</div></div>}
+      {isImportOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) resetImport();
+          }}
+        >
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-panel p-5 shadow-raised">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker">Local file import</p>
+                <h2 id="import-title" className="mt-1 text-lg font-semibold text-navy">Import Bank Statement</h2>
+              </div>
+              <button type="button" aria-label="Close import dialog" onClick={resetImport} className="rounded-md p-1 text-steel hover:bg-subtle">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {!file && (
+              <div
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void chooseFile(event.dataTransfer.files?.[0]);
+                }}
+                className="mt-5 rounded-lg border border-dashed border-line-strong bg-subtle p-6 text-center"
+              >
+                <FileUp className="mx-auto h-7 w-7 text-primary" />
+                <p className="mt-2 font-medium text-navy">Upload financial files</p>
+                <p className="mt-1 text-xs text-steel">Click to select or drag and drop</p>
+                <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-dark">Choose file</button>
+                <p className="mt-4 text-xs text-mist">Supported: {supportedFormats}</p>
+              </div>
+            )}
+            {file && detected && (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-md border border-line bg-subtle p-4">
+                  <p className="text-sm font-semibold text-navy">{file.name}</p>
+                  <p className="mt-1 text-xs text-steel">Type: {detected.format}</p>
+                </div>
+                {stage !== 'ready' && stage !== 'error' && stage !== 'complete' && <p className="rounded-md bg-primary-soft p-3 text-sm font-medium text-primary">{stageLabel[stage as keyof typeof stageLabel] ?? 'Preparing import...'}</p>}
+                {stage === 'error' && <p className="rounded-md bg-critical-soft p-3 text-sm text-critical">{error}</p>}
+                {stage === 'complete' && (
+                  <div className="rounded-md bg-positive-soft p-4 text-sm">
+                    <p className="font-semibold text-positive">Import complete</p>
+                    <p className="mt-1 text-positive">{extraction?.transactions.length ?? 0} transactions imported successfully</p>
+                    <button type="button" onClick={resetImport} className="mt-4 rounded-md bg-primary px-3 py-2 font-medium text-white hover:bg-primary-dark">Done</button>
+                  </div>
+                )}
+                {stage === 'ready' && extraction && (
+                  <div className="space-y-4">
+                    <p className="rounded-md bg-positive-soft p-3 text-sm font-medium text-positive">{extraction.transactions.length ? `${extraction.transactions.length} transactions ready to import` : extraction.message}</p>
+                    {extraction.transactions.length > 0 && (
+                      <>
+                        <h3 className="text-sm font-semibold text-navy">Import Preview</h3>
+                        <div className="overflow-x-auto rounded-md border border-line">
+                          <table className="w-full min-w-[34rem] text-left text-xs">
+                            <thead className="bg-subtle text-steel">
+                              <tr>
+                                <th className="px-3 py-2">Date</th>
+                                <th className="px-3 py-2">Description</th>
+                                <th className="px-3 py-2">Amount</th>
+                                <th className="px-3 py-2">Type</th>
+                                <th className="px-3 py-2">Vendor</th>
+                                <th className="px-3 py-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {extraction.transactions.slice(0, 5).map((txn) => (
+                                <tr key={txn.id} className="border-t border-line">
+                                  <td className="px-3 py-2">{formatDate(txn.date)}</td>
+                                  <td className="px-3 py-2">{txn.description}</td>
+                                  <td className="px-3 py-2">{formatSignedMoney(txn.amount, txn.direction)}</td>
+                                  <td className="px-3 py-2">{txn.direction === 'inflow' ? 'Credit' : 'Debit'}</td>
+                                  <td className="px-3 py-2">{txn.counterparty}</td>
+                                  <td className="px-3 py-2">{txn.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={resetImport} className="rounded-md border border-line px-3 py-2 text-sm font-medium text-steel hover:bg-subtle">Cancel</button>
+                          <button type="button" onClick={importTransactions} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-dark">Import Transactions</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                {detected.capability !== 'parsed' && stage === 'ready' && <p className="text-xs text-steel">This format is upload-supported; browser {detected.capability === 'ocr-pending' ? 'OCR' : 'document parser'} integration is still pending.</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

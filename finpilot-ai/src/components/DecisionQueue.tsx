@@ -6,7 +6,7 @@ import { formatMoney, formatDate } from '../utils/format';
 
 const severityRule: Record<RiskLevel, string> = {
   critical: 'bg-critical',
-  high: 'bg-critical',
+  high: 'bg-warning',
   medium: 'bg-warning',
   low: 'bg-line-strong',
 };

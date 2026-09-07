@@ -1,15 +1,14 @@
 import { Bell, ChevronDown, Menu, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { findNavGroup, findNavItem, navItems } from '../data/navigation';
+import { usePeriod, AVAILABLE_PERIODS } from '../hooks/usePeriod';
 import { countOpenExceptions, getCompany, getCurrentUser } from '../services/financeApi';
 import { cn } from '../utils/cn';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
 }
-
-const PERIODS = ['Aug 2026', 'Jul 2026', 'Jun 2026'];
 
 /** Shared shape for the two icon controls, so they sit on the same grid. */
 const ICON_BUTTON =
@@ -21,10 +20,11 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const user = getCurrentUser();
   const openExceptions = countOpenExceptions();
 
-  // Local for now. Becomes shared app state once pages actually filter by period.
-  const [period, setPeriod] = useState(PERIODS[0]);
+  // Centralized global period state shared across pages and persisted across refresh
+  const [period, setPeriod] = usePeriod();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const item = findNavItem(pathname);
   const group = findNavGroup(pathname);
@@ -37,6 +37,21 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     setSearchQuery('');
     setIsMobileSearchOpen(false);
   };
+
+  // Keyboard shortcut: Cmd+K / Ctrl+K focuses the search input, Escape clears it
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (event.key === 'Escape') {
+        clearSearch();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-panel px-3 sm:px-5">
@@ -65,10 +80,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <span className="sr-only">Reporting period</span>
           <select
             value={period}
-            onChange={(event) => setPeriod(event.target.value)}
+            onChange={(event) => setPeriod(event.target.value as typeof AVAILABLE_PERIODS[number])}
             className="figure cursor-pointer appearance-none rounded-lg border border-line bg-panel py-2 pr-7 pl-2.5 text-xs font-medium text-navy transition-colors duration-150 hover:border-line-strong"
           >
-            {PERIODS.map((option) => (
+            {AVAILABLE_PERIODS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -94,6 +109,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="sr-only">Search pages</span>
             <input
+              ref={searchInputRef}
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -180,7 +196,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <span className="hidden max-w-[13rem] min-w-0 flex-col leading-tight sm:flex">
             <span className="truncate text-xs font-semibold text-navy">{company.name}</span>
             <span className="truncate text-[0.6875rem] text-mist">
-              {company.openPeriod} open
+              {period} open
             </span>
           </span>
 

@@ -2,6 +2,7 @@ import { ChevronsLeft, ChevronsRight, LogOut, X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { navGroups } from '../data/navigation';
+import { usePeriod, AVAILABLE_PERIODS } from '../hooks/usePeriod';
 import { getCompany, getCurrentUser } from '../services/financeApi';
 import type { NavItem } from '../types';
 import { cn } from '../utils/cn';
@@ -71,6 +72,7 @@ interface SidebarBodyProps {
 }
 
 function SidebarBody({ collapsed, onClose, onToggleCollapse }: SidebarBodyProps) {
+  const [period, setPeriod] = usePeriod();
   const user = getCurrentUser();
   const company = getCompany();
 
@@ -179,9 +181,28 @@ function SidebarBody({ collapsed, onClose, onToggleCollapse }: SidebarBodyProps)
         </div>
 
         {/* The header carries the company name on desktop; in the drawer this
-            is the only place it appears. */}
+            is the only place it appears. Also provide the period selector on mobile. */}
         {onClose !== undefined && (
-          <p className="mt-3 truncate border-t border-line pt-3 text-xs text-mist">{company.name}</p>
+          <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3 text-xs text-mist">
+            <div className="flex items-center justify-between">
+              <span>{company.name}</span>
+              <span className="figure font-medium text-navy">{period}</span>
+            </div>
+            <label className="flex items-center justify-between gap-2">
+              <span>Period:</span>
+              <select
+                value={period}
+                onChange={(event) => setPeriod(event.target.value as typeof AVAILABLE_PERIODS[number])}
+                className="figure rounded border border-line bg-panel px-2 py-1 text-xs font-medium text-navy"
+              >
+                {AVAILABLE_PERIODS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
       </div>
     </>
